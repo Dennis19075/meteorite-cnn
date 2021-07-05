@@ -20,7 +20,7 @@ from imutils import paths
 
 # load the contents of the CSV annotations file
 print("[INFO] loading dataset...")
-rows = open(config.ANNOTS_PATH).read().strip().split("\n")
+# rows = open(config.ANNOTS_PATH).read().strip().split("\n")
 # initialize the list of data (images), our target output predictions
 # (bounding box coordinates), along with the filenames of the
 # individual images
@@ -92,37 +92,47 @@ f.close()
 #ARCHITECTURE FROM https://doi.org/10.1007/s12145-019-00434-8
 
 print("[INFO] building architecture cnn...")
-model = keras.Sequential()
+head = keras.Sequential()
 #INPUT
-model.add(keras.Input(shape=(IMG_SIZE, IMG_SIZE, 3))) 
+head.add(keras.Input(shape=(IMG_SIZE, IMG_SIZE, 3))) 
 #CONVOLUTIONAL HIDDEN LAYERS
-model.add(layers.Conv2D(16, 3, activation="relu"))
-model.add(layers.Conv2D(32, 3, activation="relu"))
-model.add(layers.MaxPooling2D(2))
-model.add(layers.Conv2D(32, 3, activation="relu"))
-model.add(layers.MaxPooling2D(2))
-model.add(layers.Conv2D(32, 3, activation="relu"))
-model.add(layers.MaxPooling2D(2))
-model.add(layers.Conv2D(32, 3, activation="relu"))
-model.add(layers.MaxPooling2D(2))
+head.add(layers.Conv2D(16, 3, activation="relu"))
+head.add(layers.Conv2D(32, 3, activation="relu"))
+head.add(layers.MaxPooling2D(2))
+head.add(layers.Conv2D(32, 3, activation="relu"))
+head.add(layers.MaxPooling2D(2))
+head.add(layers.Conv2D(32, 3, activation="relu"))
+head.add(layers.MaxPooling2D(2))
+head.add(layers.Conv2D(32, 3, activation="relu"))
+head.add(layers.MaxPooling2D(2))
 
-model.add(layers.Dropout(0.5))
-model.add(layers.Flatten())
+head.add(layers.Dropout(0.5))
+head.add(layers.Flatten())
 
 #FULLY CONNECTED LAYERS
-model.add(layers.Dense(6272, activation="relu"))
-model.add(layers.Dropout(0.5))
-model.add(layers.Dense(768, activation="relu"))
-model.add(layers.Dropout(0.5))
-model.add(layers.Dense(32, activation="relu"))
+head.add(layers.Dense(6272, activation="relu"))
+head.add(layers.Dropout(0.5))
+head.add(layers.Dense(768, activation="relu"))
+head.add(layers.Dropout(0.5))
+head.add(layers.Dense(32, activation="relu"))
+
+flatten = head.output
+flatten = Flatten()(flatten)
 
 #OUTPUT LAYER
-model.add(layers.Dense(1, activation="sigmoid"))
+# construct a fully-connected layer header to output the predicted
+# bounding box coordinates
+bboxHead = Dense(128, activation="relu")(flatten)
+bboxHead = Dense(64, activation="relu")(bboxHead)
+bboxHead = Dense(32, activation="relu")(bboxHead)
+bboxHead = Dense(4, activation="sigmoid")(bboxHead)
+# construct the model we will fine-tune for bounding box regression
+model = Model(inputs=head.input, outputs=bboxHead)
 
 # initialize the optimizer, compile the model, and show the model
 # summary
 opt = Adam(lr=config.INIT_LR)
-model.compile(loss="mse", optimizer=opt)
+model.compile(loss="mse", optimizer=opt, metrics=["accuracy"])
 print(model.summary())
 # train the network for bounding box regression
 print("[INFO] training bounding box regressor...")
