@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 import os
+from imutils import paths
 
 # load the contents of the CSV annotations file
 print("[INFO] loading dataset...")
@@ -24,34 +25,50 @@ rows = open(config.ANNOTS_PATH).read().strip().split("\n")
 # (bounding box coordinates), along with the filenames of the
 # individual images
 data = []
+labels = []
 targets = []
 filenames = []
 
 IMG_SIZE = 256
 
-# loop over the rows
-for row in rows:
-	# break the row into the filename and bounding box coordinates
-	row = row.split(",")
-	(filename, w, h, label, startX, startY, endX, endY) = row
-    	# derive the path to the input image, load the image (in OpenCV
-	# format), and grab its dimensions
-	imagePath = os.path.sep.join([config.IMAGES_PATH, filename])
-	image = cv2.imread(imagePath)
-	(h, w) = image.shape[:2]
-	# scale the bounding box coordinates relative to the spatial
-	# dimensions of the input image
-	startX = float(startX) / w
-	startY = float(startY) / h
-	endX = float(endX) / w
-	endY = float(endY) / h
-    # load the image and preprocess it
-	image = load_img(imagePath, target_size=(224, 224))
-	image = img_to_array(image)
-	# update our list of data, targets, and filenames
-	data.append(image)
-	targets.append((startX, startY, endX, endY))
-	filenames.append(filename)
+# loop over all CSV files in the annotations directory
+for csvPath in paths.list_files(config.ANNOTS_PATH, validExts=(".csv")):
+	# load the contents of the current CSV annotations file
+	rows = open(csvPath).read().strip().split("\n")
+
+	# loop over the rows
+	for row in rows:
+		# break the row into the filename, bounding box coordinates,
+		# and class label
+		row = row.split(",")
+		(filename, w, h, label, startX, startY, endX, endY) = row
+		# derive the path to the input image, load the image (in
+		# OpenCV format), and grab its dimensions
+		imagePath = os.path.sep.join([config.IMAGES_PATH, label,
+			filename])
+		image = cv2.imread(imagePath)
+		# print(imagePath)
+		# (h, w) = image.shape[:2]
+
+		# print(w)
+		# print(type(int(w)))
+		# scale the bounding box coordinates relative to the spatial
+		# dimensions of the input image
+		startX = float(startX) / int(w)
+		startY = float(startY) / int(h)
+		endX = float(endX) / int(w)
+		endY = float(endY) / int(h)
+
+		# load the image and preprocess it
+		image = load_img(imagePath, target_size=(IMG_SIZE, IMG_SIZE))
+		image = img_to_array(image)
+
+		# update our list of data, class labels, bounding boxes, and
+		# image paths
+		data.append(image)
+		labels.append(label)
+		targets.append((startX, startY, endX, endY))
+		filenames.append(imagePath)
 
 # convert the data and targets to NumPy arrays, scaling the input
 # pixel intensities from the range [0, 255] to [0, 1]
